@@ -5,6 +5,9 @@ set -Eeuo pipefail
 # mac-cyber-bootstrap.sh
 # Full macOS bootstrap for cybersecurity / CTF / bug bounty
 # For authorized testing, labs, and CTFs only.
+#
+# Author : srhoe (https://github.com/srhoe)
+# Repo   : https://github.com/srhoe/mac-cyber-bootstrap
 ############################################
 
 ### ---------- helpers ----------
@@ -72,7 +75,7 @@ ensure_shell_profile() {
     brew_line='eval "$(/usr/local/bin/brew shellenv)"'
   fi
 
-  path_line='export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"'
+  path_line='export PATH="$HOME/.local/bin:$HOME/go/bin:$HOME/.cargo/bin:$PATH"'
 
   touch "$profile_file"
 
@@ -161,7 +164,7 @@ install_formulae() {
     tcpdump
     libpcap
 
-    # recon / web / bb
+    # recon / web / bug bounty
     ffuf
     gobuster
     feroxbuster
@@ -175,10 +178,10 @@ install_formulae() {
     wafw00f
     wfuzz
     theharvester
-    wpscan
     masscan
     nmap
     recon-ng
+    dnsx
 
     # creds / cracking / auth
     hydra
@@ -193,6 +196,10 @@ install_formulae() {
     impacket
     azurehound
 
+    # exploitation
+    metasploit
+    exploitdb
+
     # dev / scanning / secrets
     semgrep
     gitleaks
@@ -203,10 +210,7 @@ install_formulae() {
     inetutils
     iperf3
     telnet
-    dnsx
-    nuclei
-    subfinder
-    httpx
+    proxychains-ng
   )
 
   for pkg in "${formulae[@]}"; do
@@ -277,6 +281,7 @@ setup_pipx() {
     mitmproxy
     bloodhound-python
     cython
+    pwntools
   )
 
   for app in "${pipx_apps[@]}"; do
@@ -293,6 +298,7 @@ setup_rust() {
   log "Initializing rustup..."
   export PATH="$(brew --prefix rustup)/bin:$PATH"
   rustup default stable || true
+  export PATH="$HOME/.cargo/bin:$PATH"
   ok "Rust ready."
 }
 
@@ -301,15 +307,25 @@ setup_go_tools() {
   export PATH="$HOME/go/bin:$PATH"
 
   local go_tools=(
-    github.com/hakluke/hakrawler@latest
+    # tomnomnom suite
     github.com/tomnomnom/waybackurls@latest
     github.com/tomnomnom/assetfinder@latest
-    github.com/lc/gau/v2/cmd/gau@latest
-    github.com/projectdiscovery/katana/cmd/katana@latest
     github.com/tomnomnom/httprobe@latest
+    github.com/tomnomnom/anew@latest
+    github.com/tomnomnom/unfurl@latest
+    github.com/tomnomnom/qsreplace@latest
+    github.com/tomnomnom/gf@latest
+
+    # projectdiscovery suite
+    github.com/projectdiscovery/katana/cmd/katana@latest
     github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest
     github.com/projectdiscovery/cdncheck/cmd/cdncheck@latest
     github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest
+    github.com/projectdiscovery/notify/cmd/notify@latest
+
+    # other
+    github.com/hakluke/hakrawler@latest
+    github.com/lc/gau/v2/cmd/gau@latest
     github.com/OJ/gobuster/v3@latest
   )
 
@@ -319,9 +335,16 @@ setup_go_tools() {
   done
 }
 
-setup_gem_tools() {
-  log "Installing Ruby-based tooling..."
-  gem install wpscan || warn "Ruby gem install failed: wpscan"
+setup_gf_patterns() {
+  log "Setting up gf patterns..."
+  mkdir -p "$HOME/.gf"
+
+  if [[ -d "$HOME/tools/Gf-Patterns" ]]; then
+    cp "$HOME/tools/Gf-Patterns/"*.json "$HOME/.gf/" 2>/dev/null || true
+    ok "gf patterns installed to ~/.gf"
+  else
+    warn "Gf-Patterns repo not found — run clone_repos first."
+  fi
 }
 
 ### ---------- repos / wordlists ----------
@@ -339,18 +362,18 @@ clone_repo_if_missing() {
 clone_repos() {
   log "Cloning security repos and wordlists..."
 
-  clone_repo_if_missing "https://github.com/danielmiessler/SecLists.git" "$HOME/wordlists/SecLists"
-  clone_repo_if_missing "https://github.com/swisskyrepo/PayloadsAllTheThings.git" "$HOME/tools/PayloadsAllTheThings"
-  clone_repo_if_missing "https://github.com/PowerShellMafia/PowerSploit.git" "$HOME/tools/PowerSploit"
-  clone_repo_if_missing "https://github.com/lgandx/Responder.git" "$HOME/tools/Responder"
-  clone_repo_if_missing "https://github.com/laramies/theHarvester.git" "$HOME/tools/theHarvester-src"
-  clone_repo_if_missing "https://github.com/EnableSecurity/wafw00f.git" "$HOME/tools/wafw00f-src"
-  clone_repo_if_missing "https://github.com/s0md3v/XSStrike.git" "$HOME/tools/XSStrike"
-  clone_repo_if_missing "https://github.com/danielmiessler/RobotsDisallowed.git" "$HOME/tools/RobotsDisallowed"
-  clone_repo_if_missing "https://github.com/1ndianl33t/Gf-Patterns.git" "$HOME/tools/Gf-Patterns"
-  clone_repo_if_missing "https://github.com/projectdiscovery/fuzzing-templates.git" "$HOME/tools/fuzzing-templates"
-  clone_repo_if_missing "https://github.com/projectdiscovery/nuclei-templates.git" "$HOME/tools/nuclei-templates"
-  clone_repo_if_missing "https://github.com/itm4n/PrivescCheck.git" "$HOME/tools/PrivescCheck"
+  clone_repo_if_missing "https://github.com/danielmiessler/SecLists.git"                    "$HOME/wordlists/SecLists"
+  clone_repo_if_missing "https://github.com/swisskyrepo/PayloadsAllTheThings.git"            "$HOME/tools/PayloadsAllTheThings"
+  clone_repo_if_missing "https://github.com/PowerShellMafia/PowerSploit.git"                 "$HOME/tools/PowerSploit"
+  clone_repo_if_missing "https://github.com/lgandx/Responder.git"                            "$HOME/tools/Responder"
+  clone_repo_if_missing "https://github.com/laramies/theHarvester.git"                       "$HOME/tools/theHarvester-src"
+  clone_repo_if_missing "https://github.com/EnableSecurity/wafw00f.git"                      "$HOME/tools/wafw00f-src"
+  clone_repo_if_missing "https://github.com/s0md3v/XSStrike.git"                             "$HOME/tools/XSStrike"
+  clone_repo_if_missing "https://github.com/danielmiessler/RobotsDisallowed.git"             "$HOME/tools/RobotsDisallowed"
+  clone_repo_if_missing "https://github.com/1ndianl33t/Gf-Patterns.git"                      "$HOME/tools/Gf-Patterns"
+  clone_repo_if_missing "https://github.com/projectdiscovery/fuzzing-templates.git"          "$HOME/tools/fuzzing-templates"
+  clone_repo_if_missing "https://github.com/projectdiscovery/nuclei-templates.git"           "$HOME/tools/nuclei-templates"
+  clone_repo_if_missing "https://github.com/itm4n/PrivescCheck.git"                          "$HOME/tools/PrivescCheck"
 }
 
 ### ---------- aliases / config ----------
@@ -374,7 +397,7 @@ write_shell_config() {
   log "Writing aliases to $rc_file..."
 
   append_once '' "$rc_file"
-  append_once '# cyber / ctf aliases' "$rc_file"
+  append_once '# cyber / ctf aliases — srhoe/mac-cyber-bootstrap' "$rc_file"
   append_once 'alias ll="ls -lah"' "$rc_file"
   append_once 'alias ctf="cd $HOME/labs"' "$rc_file"
   append_once 'alias tools="cd $HOME/tools"' "$rc_file"
@@ -384,7 +407,8 @@ write_shell_config() {
   append_once 'alias grepip="grep -Eo '\''([0-9]{1,3}\.){3}[0-9]{1,3}'\''"' "$rc_file"
   append_once 'alias pyserver="python3 -m http.server 8000"' "$rc_file"
   append_once 'alias reload="source ~/.zshrc 2>/dev/null || source ~/.bashrc"' "$rc_file"
-  append_once 'export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"' "$rc_file"
+  append_once 'alias searchsploit="searchsploit"' "$rc_file"
+  append_once 'export PATH="$HOME/.local/bin:$HOME/go/bin:$HOME/.cargo/bin:$PATH"' "$rc_file"
   append_once 'export EDITOR="nvim"' "$rc_file"
   append_once 'export WORDLISTS="$HOME/wordlists/SecLists"' "$rc_file"
 
@@ -403,6 +427,11 @@ finalize_tools() {
     git -C "$HOME/tools/nuclei-templates" pull || true
   fi
 
+  # update exploitdb
+  if command -v searchsploit >/dev/null 2>&1; then
+    searchsploit -u || warn "searchsploit update failed"
+  fi
+
   ok "Post-install tasks finished."
 }
 
@@ -411,68 +440,80 @@ manual_notes() {
   cat <<'EOF'
 
 ==========================================================
-DONE
+  mac-cyber-bootstrap — by srhoe
+  https://github.com/srhoe/mac-cyber-bootstrap
 ==========================================================
 
 Installed:
-- Core terminal/dev tools
-- Recon/web/bug bounty tools
-- Password/cracking tools
-- AD/Windows support tools
+- Core terminal / dev tools
+- Recon / web / bug bounty tools
+- Password / cracking tools
+- AD / Windows support tools
+- Exploitation tools (Metasploit, exploitdb/searchsploit)
 - GUI apps
 - Wordlists and common repos
+- tomnomnom suite (anew, gf, unfurl, qsreplace, waybackurls, etc.)
+- projectdiscovery suite (nuclei, subfinder, httpx, notify, etc.)
+- pwntools (for CTF pwn challenges)
 - Handy shell aliases
 
 Manual / special-case notes:
-1. Nessus / Autonessus:
-   Install Nessus directly from Tenable. It is better handled manually on macOS.
+1. Nessus:
+   Install directly from Tenable — better handled manually on macOS.
+   https://www.tenable.com/downloads/nessus
 
 2. Mimikatz:
-   Native use is Windows-focused. Keep it in a Windows VM/lab instead of your host Mac.
+   Windows-focused. Keep it in a Windows VM / lab.
 
 3. Flameshot:
    Linux-oriented. On macOS use:
-   - built-in screenshot tools
-   - Shottr
+   - Built-in screenshot tools (Cmd+Shift+4/5)
+   - Shottr (free, great for pentest annotation)
    - CleanShot X
-   - Flameshot via unofficial workarounds only if you really want it
 
 4. netstat-nat:
-   Linux-oriented. On macOS use:
+   Linux-only. On macOS use:
    - lsof -i -P -n
    - nettop
    - tcpdump
 
 5. BloodHound:
-   The Brew cask currently installs, but it is marked deprecated. Keep that in mind.
+   The Brew cask installs but is marked deprecated. Keep that in mind.
+
+6. Burp Suite CA Certificate:
+   After opening Burp for the first time:
+   - Go to http://burpsuite (with proxy active)
+   - Download the CA cert and install it in macOS Keychain
+   - Trust it for SSL — required to intercept HTTPS
+
+7. Mullvad VPN Kill Switch:
+   Enable the kill switch in Mullvad settings before doing
+   any recon from public networks.
+
+8. proxychains-ng config:
+   Edit /usr/local/etc/proxychains.conf (Intel) or
+   /opt/homebrew/etc/proxychains.conf (Apple Silicon)
+   to point at your proxy (e.g., Burp or SOCKS5).
 
 Recommended next steps:
 - Restart Terminal
 - Run: brew doctor
 - Run: source ~/.zshrc   (or ~/.bashrc)
-- Check tools:
-    which nmap
-    which ffuf
-    which nuclei
-    which subfinder
-    which httpx
-    which sqlmap
-    which impacket-GetUserSPNs
-    which evil-winrm
-    which crackmapexec
-- Open Burp, Caido, Wireshark, Obsidian once
-- In Wireshark, confirm permissions and packet capture access
-- In Docker, finish first-run setup
-- Login to Bitwarden CLI:
+- Verify key tools:
+    which nmap ffuf nuclei subfinder httpx sqlmap
+    which evil-winrm crackmapexec msfconsole searchsploit
+    which anew gf unfurl qsreplace notify
+- Open Burp, Caido, Wireshark, Docker once and finish first-run setup
+- Log in to Bitwarden CLI:
     bw login
-- Verify Mullvad / VPN setup before running recon from public networks
+- Confirm Mullvad / VPN is working before recon on public networks
 
 Useful folders:
-- ~/labs
-- ~/tools
-- ~/wordlists
-- ~/reports
-- ~/screenshots
+- ~/labs        → CTF and lab workspaces
+- ~/tools       → Cloned repos and custom tools
+- ~/wordlists   → SecLists and other wordlists
+- ~/reports     → Pentest / bug bounty reports
+- ~/screenshots → Evidence and findings
 
 EOF
 }
@@ -490,8 +531,8 @@ main() {
   setup_pipx
   setup_rust
   setup_go_tools
-  setup_gem_tools
   clone_repos
+  setup_gf_patterns
   write_shell_config
   finalize_tools
   manual_notes
