@@ -111,6 +111,18 @@ brew_update_upgrade() {
   brew upgrade || true
 }
 
+# FIX: Check if a formula is installed BEFORE brew ever touches the network.
+# Previously, brew install would still fetch metadata even when the package
+# was already installed. Now we guard with `brew list` first so no download
+# is initiated for already-present packages. (Issue reported by HappyG)
+is_formula_installed() {
+  brew list --formula "$1" >/dev/null 2>&1
+}
+
+is_cask_installed() {
+  brew list --cask "$1" >/dev/null 2>&1
+}
+
 install_formulae() {
   log "Installing CLI formulae..."
 
@@ -205,6 +217,31 @@ install_formulae() {
     gitleaks
     gemini-cli
 
+    # NEW: cloud / infra recon
+    awscli          # AWS CLI — useful for cloud pentesting and SSRF validation
+    azure-cli       # Azure CLI — pairs with AzureHound for AAD enumeration
+    terraform       # IaC analysis and lab spins
+    trufflehog      # secret scanning across git history (faster than gitleaks for large repos)
+    cloudsplaining  # AWS IAM policy auditing
+
+    # NEW: network / protocol analysis
+    mtr             # traceroute + ping combined, great for network debugging
+    testssl         # TLS/SSL cipher and cert assessment without Burp
+    sslscan         # quick SSL version and cipher scanner
+    dnsrecon        # DNS enumeration (zone transfers, brute force, etc.)
+    fierce          # DNS recon / subdomain brute
+
+    # NEW: OSINT / recon extras
+    shodan          # Shodan CLI — query internet-facing asset data
+    metagoofil      # metadata extraction from public docs
+    exiftool        # deep file metadata extraction (images, PDFs, Office)
+
+    # NEW: utility / workflow
+    gron            # make JSON greppable — great for parsing API responses
+    httpie          # human-friendly curl alternative
+    xh              # fast httpie-compatible HTTP client written in Rust
+    dasel           # query/modify JSON, YAML, TOML, CSV from CLI
+
     # useful extras
     whois
     inetutils
@@ -214,8 +251,9 @@ install_formulae() {
   )
 
   for pkg in "${formulae[@]}"; do
-    if brew list --formula "$pkg" >/dev/null 2>&1; then
-      ok "$pkg already installed"
+    # FIX: guard check happens here — no brew invocation if already installed
+    if is_formula_installed "$pkg"; then
+      ok "$pkg already installed (skipping download)"
     else
       printf "  - installing %s\n" "$pkg"
       brew install "$pkg" || warn "Failed to install formula: $pkg"
@@ -228,8 +266,8 @@ install_formulae() {
   )
 
   for pkg in "${tapped_formulae[@]}"; do
-    if brew list --formula "$pkg" >/dev/null 2>&1; then
-      ok "$pkg already installed"
+    if is_formula_installed "$pkg"; then
+      ok "$pkg already installed (skipping download)"
     else
       printf "  - installing %s\n" "$pkg"
       brew install "$pkg" || warn "Failed to install tapped formula: $pkg"
@@ -258,11 +296,19 @@ install_casks() {
     bloodhound
     maltego
     docker
+
+    # NEW: GUI additions
+    proxyman        # native macOS HTTP/HTTPS proxy debugger (great Burp companion)
+    cyberduck       # S3 / cloud storage browser — useful for misconfigured bucket hunting
+    gas-mask        # /etc/hosts manager — handy for lab/CTF target switching
+    secretive       # store SSH keys in Secure Enclave instead of on disk
+    apparency       # inspect app code signatures and entitlements
   )
 
   for cask in "${casks[@]}"; do
-    if brew list --cask "$cask" >/dev/null 2>&1; then
-      ok "$cask already installed"
+    # FIX: guard check happens here — no brew invocation if already installed
+    if is_cask_installed "$cask"; then
+      ok "$cask already installed (skipping download)"
     else
       printf "  - installing %s\n" "$cask"
       brew install --cask "$cask" || warn "Failed to install cask: $cask"
@@ -282,6 +328,16 @@ setup_pipx() {
     bloodhound-python
     cython
     pwntools
+
+    # NEW: pipx additions
+    certipy-ad       # Active Directory certificate abuse (ESC1-ESC8)
+    impacket         # Windows protocol suite — SMB, Kerberos, NTLM
+    crackmapexec     # network pentesting multi-tool (fallback if brew tap fails)
+    netexec          # actively maintained CrackMapExec fork
+    pypykatz         # Mimikatz reimplemented in pure Python
+    ldapdomaindump   # dump AD info over LDAP without needing domain admin
+    pywhisker        # shadow credentials attack tool for AD CS abuse
+    coercer          # coerce Windows hosts to authenticate (PetitPotam, PrinterBug, etc.)
   )
 
   for app in "${pipx_apps[@]}"; do
@@ -299,6 +355,22 @@ setup_rust() {
   export PATH="$(brew --prefix rustup)/bin:$PATH"
   rustup default stable || true
   export PATH="$HOME/.cargo/bin:$PATH"
+
+  log "Installing Rust-based security tools..."
+  local cargo_tools=(
+    rustscan    # fast port scanner — scans all 65k ports then hands off to nmap
+    feroxbuster # already in brew but cargo version is latest
+  )
+
+  for tool in "${cargo_tools[@]}"; do
+    if command -v "$tool" >/dev/null 2>&1; then
+      ok "$tool already installed"
+    else
+      printf "  - cargo installing %s\n" "$tool"
+      cargo install "$tool" || warn "cargo install failed: $tool"
+    fi
+  done
+
   ok "Rust ready."
 }
 
@@ -322,11 +394,24 @@ setup_go_tools() {
     github.com/projectdiscovery/cdncheck/cmd/cdncheck@latest
     github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest
     github.com/projectdiscovery/notify/cmd/notify@latest
+    github.com/projectdiscovery/tlsx/cmd/tlsx@latest        # NEW: TLS data extraction and cert scanning
+    github.com/projectdiscovery/asnmap/cmd/asnmap@latest    # NEW: ASN to CIDR mapping for org recon
+    github.com/projectdiscovery/uncover/cmd/uncover@latest  # NEW: query Shodan/Fofa/Censys from CLI
 
     # other
     github.com/hakluke/hakrawler@latest
     github.com/lc/gau/v2/cmd/gau@latest
     github.com/OJ/gobuster/v3@latest
+
+    # NEW: Go additions
+    github.com/d3mondev/puredns/v2@latest           # fast subdomain brute-forcer with wildcard filtering
+    github.com/sw33tLie/sns@latest                   # SNI sniffing — finds vhosts on an IP
+    github.com/003random/getJS@latest                # extract JS file URLs from a page
+    github.com/KathanP19/Jsmon@latest                # monitor JS files for changes (bug bounty recon)
+    github.com/hahwul/dalfox/v2@latest               # fast XSS parameter analysis and scanning
+    github.com/dwisiswant0/crlfuzz@latest            # CRLF injection fuzzer
+    github.com/ethicalhackingplayground/bxss@latest  # blind XSS injector
+    github.com/RedTeamPentesting/pretender@latest    # LLMNR/NBNS/mDNS spoofer (lab use)
   )
 
   for tool in "${go_tools[@]}"; do
@@ -374,6 +459,16 @@ clone_repos() {
   clone_repo_if_missing "https://github.com/projectdiscovery/fuzzing-templates.git"          "$HOME/tools/fuzzing-templates"
   clone_repo_if_missing "https://github.com/projectdiscovery/nuclei-templates.git"           "$HOME/tools/nuclei-templates"
   clone_repo_if_missing "https://github.com/itm4n/PrivescCheck.git"                          "$HOME/tools/PrivescCheck"
+
+  # NEW repos
+  clone_repo_if_missing "https://github.com/dirkjanm/BloodHound.py.git"                      "$HOME/tools/BloodHound.py"
+  clone_repo_if_missing "https://github.com/ly4k/Certipy.git"                                "$HOME/tools/Certipy"
+  clone_repo_if_missing "https://github.com/p0dalirius/Coercer.git"                          "$HOME/tools/Coercer"
+  clone_repo_if_missing "https://github.com/Tib3rius/AutoRecon.git"                          "$HOME/tools/AutoRecon"
+  clone_repo_if_missing "https://github.com/assetnote/wordlists.git"                         "$HOME/wordlists/assetnote"
+  clone_repo_if_missing "https://github.com/Bo0oM/fuzz.txt.git"                              "$HOME/wordlists/fuzz.txt"
+  clone_repo_if_missing "https://github.com/xmendez/wfuzz.git"                               "$HOME/tools/wfuzz-src"
+  clone_repo_if_missing "https://github.com/21y4d/nmapAutomator.git"                         "$HOME/tools/nmapAutomator"
 }
 
 ### ---------- aliases / config ----------
@@ -408,9 +503,15 @@ write_shell_config() {
   append_once 'alias pyserver="python3 -m http.server 8000"' "$rc_file"
   append_once 'alias reload="source ~/.zshrc 2>/dev/null || source ~/.bashrc"' "$rc_file"
   append_once 'alias searchsploit="searchsploit"' "$rc_file"
+  # NEW aliases
+  append_once 'alias rustscan="rustscan --ulimit 5000"' "$rc_file"
+  append_once 'alias autorecon="python3 $HOME/tools/AutoRecon/autorecon.py"' "$rc_file"
+  append_once 'alias nmapauto="$HOME/tools/nmapAutomator/nmapAutomator.sh"' "$rc_file"
+  append_once 'alias http="http --verify=no"' "$rc_file"  # httpie ignore SSL in lab
   append_once 'export PATH="$HOME/.local/bin:$HOME/go/bin:$HOME/.cargo/bin:$PATH"' "$rc_file"
   append_once 'export EDITOR="nvim"' "$rc_file"
   append_once 'export WORDLISTS="$HOME/wordlists/SecLists"' "$rc_file"
+  append_once 'export ASSETNOTE="$HOME/wordlists/assetnote"' "$rc_file"
 
   ok "Shell config updated."
 }
@@ -446,14 +547,16 @@ manual_notes() {
 
 Installed:
 - Core terminal / dev tools
-- Recon / web / bug bounty tools
+- Recon / web / bug bounty tools (+ dalfox, puredns, uncover, asnmap, tlsx)
 - Password / cracking tools
-- AD / Windows support tools
+- AD / Windows support tools (+ certipy, netexec, coercer, pypykatz)
 - Exploitation tools (Metasploit, exploitdb/searchsploit)
-- GUI apps
-- Wordlists and common repos
-- tomnomnom suite (anew, gf, unfurl, qsreplace, waybackurls, etc.)
-- projectdiscovery suite (nuclei, subfinder, httpx, notify, etc.)
+- Cloud tools (awscli, azure-cli, cloudsplaining)
+- GUI apps (+ proxyman, cyberduck, gas-mask, secretive)
+- Wordlists and common repos (+ assetnote wordlists)
+- tomnomnom suite
+- projectdiscovery suite (+ tlsx, asnmap, uncover)
+- Rust tools (+ rustscan)
 - pwntools (for CTF pwn challenges)
 - Handy shell aliases
 
@@ -464,6 +567,7 @@ Manual / special-case notes:
 
 2. Mimikatz:
    Windows-focused. Keep it in a Windows VM / lab.
+   Use pypykatz (installed via pipx) on macOS for offline analysis.
 
 3. Flameshot:
    Linux-oriented. On macOS use:
@@ -479,12 +583,14 @@ Manual / special-case notes:
 
 5. BloodHound:
    The Brew cask installs but is marked deprecated. Keep that in mind.
+   bloodhound-python (pipx) is used for data collection from Linux/macOS.
 
 6. Burp Suite CA Certificate:
    After opening Burp for the first time:
    - Go to http://burpsuite (with proxy active)
    - Download the CA cert and install it in macOS Keychain
    - Trust it for SSL — required to intercept HTTPS
+   Proxyman can also be used as a lightweight alternative.
 
 7. Mullvad VPN Kill Switch:
    Enable the kill switch in Mullvad settings before doing
@@ -495,6 +601,26 @@ Manual / special-case notes:
    /opt/homebrew/etc/proxychains.conf (Apple Silicon)
    to point at your proxy (e.g., Burp or SOCKS5).
 
+9. RustScan:
+   The alias sets --ulimit 5000 to avoid macOS file descriptor limits.
+   Usage: rustscan -a <target> -- -sV -sC
+   (passes remaining args to nmap)
+
+10. Shodan CLI:
+    After install, authenticate with:
+      shodan init <YOUR_API_KEY>
+    Then use: shodan host <IP>, shodan search "apache"
+
+11. Gas Mask:
+    Lets you switch /etc/hosts profiles quickly.
+    Useful for lab environments where you need to route domain names
+    to specific IPs without editing /etc/hosts manually each time.
+
+12. Secretive:
+    Stores SSH keys in the Secure Enclave (T2/M-series chips).
+    Keys are hardware-bound and never leave the chip.
+    Pair with your SSH config for GitHub and remote lab access.
+
 Recommended next steps:
 - Restart Terminal
 - Run: brew doctor
@@ -503,15 +629,18 @@ Recommended next steps:
     which nmap ffuf nuclei subfinder httpx sqlmap
     which evil-winrm crackmapexec msfconsole searchsploit
     which anew gf unfurl qsreplace notify
-- Open Burp, Caido, Wireshark, Docker once and finish first-run setup
+    which rustscan dalfox puredns tlsx asnmap uncover
+- Open Burp, Caido, Wireshark, Docker, Proxyman once and finish first-run setup
 - Log in to Bitwarden CLI:
     bw login
+- Initialize Shodan CLI:
+    shodan init <API_KEY>
 - Confirm Mullvad / VPN is working before recon on public networks
 
 Useful folders:
 - ~/labs        → CTF and lab workspaces
 - ~/tools       → Cloned repos and custom tools
-- ~/wordlists   → SecLists and other wordlists
+- ~/wordlists   → SecLists, assetnote, and other wordlists
 - ~/reports     → Pentest / bug bounty reports
 - ~/screenshots → Evidence and findings
 
