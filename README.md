@@ -48,29 +48,31 @@ chmod +x mac-cyber-bootstrap.sh
 
 Everything lives under `~/pentester/` — no more scattered folders across your home directory.
 
+```
 ~/pentester/
-├── tools/ # Cloned repos and custom tools
-├── labs/ # CTF and lab workspaces
-├── wordlists/ # SecLists, assetnote, and others
-├── reports/ # Pentest / bug bounty reports
-├── screenshots/ # Evidence and findings
-├── pcaps/ # Packet captures
-├── memory-dumps/ # Volatility3 analysis targets
-├── malware-samples/ # Malware analysis (isolate in VM)
-└── osint/ # OSINT workspace
-├── targets/ # Target notes and scope
-├── reports/ # OSINT investigation reports
-├── dumps/ # Data dumps
-├── sherlock/ # Username enumeration
-├── holehe/ # Email recon
-├── maigret/ # Deep username OSINT
-├── spiderfoot/ # Automated OSINT
-├── phoneinfoga/ # Phone number OSINT
-├── h8mail/ # Email breach hunting
-├── theHarvester/ # Domain/email/subdomain recon
-├── recon-ng/ # Modular recon framework
-├── osintgram/ # Instagram OSINT
-└── ghunt/ # Google account OSINT
+├── tools/              # Cloned repos and custom tools
+├── labs/               # CTF and lab workspaces
+├── wordlists/          # SecLists, assetnote, and others
+├── reports/            # Pentest / bug bounty reports
+├── screenshots/        # Evidence and findings
+├── pcaps/              # Packet captures
+├── memory-dumps/       # Volatility3 analysis targets
+├── malware-samples/    # Malware analysis (isolate in VM)
+└── osint/              # OSINT workspace
+    ├── targets/        # Target notes and scope
+    ├── reports/        # OSINT investigation reports
+    ├── dumps/          # Data dumps
+    ├── sherlock/       # Username enumeration
+    ├── holehe/         # Email recon
+    ├── maigret/        # Deep username OSINT
+    ├── spiderfoot/     # Automated OSINT
+    ├── phoneinfoga/    # Phone number OSINT
+    ├── h8mail/         # Email breach hunting
+    ├── theHarvester/   # Domain/email/subdomain recon
+    ├── recon-ng/       # Modular recon framework
+    ├── osintgram/      # Instagram OSINT
+    └── ghunt/          # Google account OSINT
+```
 
 ---
 
