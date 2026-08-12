@@ -106,7 +106,7 @@ Everything lives under `~/pentester/` — no more scattered folders across your 
 `volatility3` · `Zeek` · `Suricata` · `chainsaw` · `hayabusa` · `sigma` · `YARA-Rules` · `oletools` · `pdfid`
 
 ### ☁️ Cloud Security
-`awscli` · `azure-cli` · `Pacu` · `ScoutSuite` · `CloudFox` · `ROADtools` · `TeamFiltration` · `s3scanner` · `enumerate-iam`
+`awscli` · `azure-cli` · `Pacu` · `ScoutSuite` · `CloudFox` · `ROADtools` · `TeamFiltration` · `s3scanner` · `enumerate-iam` · `trivy`
 
 ### 📡 Wireless
 `aircrack-ng` · `hcxdumptool` · `bettercap`

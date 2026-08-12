@@ -255,6 +255,7 @@ install_formulae() {
     awscli           # AWS CLI — cloud pentesting, SSRF validation
     azure-cli        # Azure CLI — pairs with AzureHound
     terraform        # IaC analysis and lab spins
+    trivy            # vulnerability, misconfiguration, secret and SBOM scanner
     trufflehog       # secret scanning across git history
     gitleaks         # detect hardcoded secrets in repos
 
@@ -910,7 +911,7 @@ FIRST-RUN CHECKLIST:
   □ sudo sliver-server
   □ vol3 --help
   □ sherlock --help
-  □ which nmap ffuf nuclei subfinder httpx sqlmap rustscan
+  □ which nmap ffuf nuclei subfinder httpx sqlmap rustscan dalfox trivy
 
 EOF
 }
